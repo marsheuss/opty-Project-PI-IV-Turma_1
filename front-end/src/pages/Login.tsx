@@ -1,8 +1,5 @@
-/**
- * IMPORTS
- */
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, Tag, Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,12 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
 
-
-/**
- * CODE
- */
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -25,45 +17,21 @@ const Login = () => {
     rememberMe: false,
   });
   const { toast } = useToast();
-  const { signIn, signInWithGoogle } = useAuth();
-  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    try {
-      await signIn(formData.email, formData.password);
-
+    // Simulate API call
+    setTimeout(() => {
+      setIsLoading(false);
+      localStorage.setItem('logged-in', 'true');
       toast({
         title: 'Login realizado!',
         description: 'Bem-vindo de volta ao Opty.',
       });
-
-      navigate('/dashboard');
-    } catch (error: any) {
-      toast({
-        title: 'Erro ao fazer login',
-        description: error.message || 'Verifique suas credenciais e tente novamente.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      setIsLoading(true);
-      await signInWithGoogle();
-    } catch (error: any) {
-      toast({
-        title: 'Erro ao fazer login',
-        description: error.message,
-        variant: 'destructive',
-      });
-      setIsLoading(false);
-    }
+      window.location.href = '/dashboard';
+    }, 1500);
   };
 
   return (
@@ -168,14 +136,7 @@ const Login = () => {
 
               {/* Social Login */}
               <div className='space-y-2'>
-                <Button
-                  type='button'
-                  variant='outline'
-                  className='w-full'
-                  size='lg'
-                  onClick={handleGoogleLogin}
-                  disabled={isLoading}
-                >
+                <Button type='button' variant='outline' className='w-full' size='lg'>
                   <svg className='h-5 w-5 mr-2' viewBox='0 0 24 24'>
                     <path
                       fill='currentColor'
@@ -195,6 +156,10 @@ const Login = () => {
                     />
                   </svg>
                   Continuar com Google
+                </Button>
+                <Button type='button' variant='outline' className='w-full' size='lg'>
+                  <Github className='h-5 w-5 mr-2' />
+                  Continuar com GitHub
                 </Button>
               </div>
             </form>

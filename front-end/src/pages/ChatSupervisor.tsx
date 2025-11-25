@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   Tag,
   Send,
@@ -26,15 +26,14 @@ import ChatMessage from '@/components/ChatMessage';
 import { useToast } from '@/hooks/use-toast';
 import { useSupervisorChat } from '@/hooks/useSupervisorChat';
 import { useSupervisorQueue } from '@/hooks/useSupervisorQueue';
-import { useAuth } from '@/hooks/useAuth';
 
 const ChatSupervisor = () => {
   const { toast } = useToast();
-  const { signOut } = useAuth();
-  const navigate = useNavigate();
+  const { sessionId: paramSessionId } = useParams();
   const [message, setMessage] = useState('');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
   // Hook to manage queue of available sessions (only enabled when no active session)
   const { availableSessions, isConnected: queueConnected, acceptSession } = useSupervisorQueue({
@@ -73,10 +72,20 @@ const ChatSupervisor = () => {
     if (scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+        (scrollContainer as HTMLElement).scrollTop = (scrollContainer as HTMLElement).scrollHeight;
       }
     }
+    if (bottomRef.current && typeof bottomRef.current.scrollIntoView === 'function') {
+      bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
+
+  useEffect(() => {
+    if (paramSessionId && !activeSessionId) {
+      setActiveSessionId(paramSessionId);
+      toast({ title: 'Conectando', description: `Entrando na sessão #${paramSessionId.substring(0, 8)}...` });
+    }
+  }, [paramSessionId, activeSessionId, toast]);
 
   const handleSendMessage = () => {
     if (!message.trim()) return;
@@ -98,23 +107,6 @@ const ChatSupervisor = () => {
   const handleLeaveSession = () => {
     setActiveSessionId(null);
     setMessage('');
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut();
-      toast({
-        title: 'Logout realizado!',
-        description: 'Até logo!',
-      });
-      navigate('/login');
-    } catch (error: any) {
-      toast({
-        title: 'Erro ao fazer logout',
-        description: error.message || 'Tente novamente.',
-        variant: 'destructive',
-      });
-    }
   };
 
   // If no active session, show queue view
@@ -148,8 +140,10 @@ const ChatSupervisor = () => {
                     {queueConnected ? 'Conectado' : 'Desconectado'}
                   </span>
                 </div>
-                <Button variant='ghost' size='icon' onClick={handleLogout}>
-                  <LogOut className='h-5 w-5' />
+                <Button variant='ghost' size='icon' asChild>
+                  <Link to='/'>
+                    <LogOut className='h-5 w-5' />
+                  </Link>
                 </Button>
               </div>
             </div>
@@ -267,8 +261,10 @@ const ChatSupervisor = () => {
                   {isPaired ? 'Pareado' : chatConnected ? 'Conectado' : 'Desconectado'}
                 </span>
               </div>
-              <Button variant='ghost' size='icon' onClick={handleLogout}>
-                <LogOut className='h-5 w-5' />
+              <Button variant='ghost' size='icon' asChild>
+                <Link to='/'>
+                  <LogOut className='h-5 w-5' />
+                </Link>
               </Button>
             </div>
           </div>
@@ -276,22 +272,22 @@ const ChatSupervisor = () => {
       </header>
 
       {/* Chat Content */}
-      <div className='flex-1 container mx-auto px-4 py-6'>
-        <div className='max-w-4xl mx-auto w-full'>
+      <div className='flex-1 container mx-auto px-4 py-6 max-w-5xl'>
+        <div className='h-full flex flex-col'>
           {/* Session Info Card */}
-          <Card className='mb-4 p-3 glass'>
-            <div className='flex flex-wrap items-center justify-between gap-3'>
-              <div className='flex items-center gap-3'>
+          <Card className='mb-4 p-4 glass'>
+            <div className='flex flex-wrap items-center justify-between gap-4'>
+              <div className='flex items-center gap-4'>
                 <div>
-                  <div className='text-xs text-muted-foreground'>Sessão</div>
+                  <div className='text-sm text-muted-foreground'>Sessão</div>
                   <div className='font-semibold text-xs'>
                     #{activeSessionId.substring(0, 8)}...
                   </div>
                 </div>
-                <div className='h-6 w-px bg-border' />
+                <div className='h-8 w-px bg-border' />
                 <div>
-                  <div className='text-xs text-muted-foreground'>Status</div>
-                  <div className='font-semibold text-sm text-accent'>
+                  <div className='text-sm text-muted-foreground'>Status</div>
+                  <div className='font-semibold text-accent'>
                     {isPaired ? 'Pareado' : 'Conectando...'}
                   </div>
                 </div>
@@ -307,7 +303,7 @@ const ChatSupervisor = () => {
           </Card>
 
           {/* Messages Area */}
-          <Card className='glass flex flex-col overflow-hidden' style={{ height: 'calc(100vh - 320px)' }}>
+          <Card className='flex-1 glass flex flex-col overflow-hidden'>
             <ScrollArea className='flex-1 p-4 sm:p-6' ref={scrollAreaRef}>
               <div className='space-y-4'>
                 {messages.length === 0 ? (
@@ -325,6 +321,7 @@ const ChatSupervisor = () => {
                     />
                   ))
                 )}
+                <div ref={bottomRef} />
               </div>
             </ScrollArea>
 

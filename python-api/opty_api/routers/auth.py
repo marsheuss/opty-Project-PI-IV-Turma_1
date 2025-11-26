@@ -16,6 +16,11 @@ from opty_api.services.auth.register import register_user
 from opty_api.services.auth.update import update_user_profile
 from opty_api.utils.dependencies import get_current_active_user
 from opty_api.utils.dependencies import require_role
+from pydantic import BaseModel
+from opty_api.services.auth.reset_password import (
+    send_reset_email,
+    reset_password_with_token
+)
 
 
 # --- TYPES ---
@@ -28,6 +33,14 @@ from opty_api.schemas.token import Token
 from opty_api.schemas.user import User
 from supabase_auth.types import OAuthResponse
 from typing import Dict
+
+# --- SCHEMAS ---
+class PasswordResetRequest(BaseModel):
+    email: str
+
+class PasswordResetPayload(BaseModel):
+    access_token: str
+    new_password: str
 
 
 # --- GLOBAL ---
@@ -205,3 +218,50 @@ async def list_users(
 
     # Return the list of users
     return JSONResponse(content=jsonable_encoder(users_data), status_code=status.HTTP_200_OK)
+
+@router.post("/request-password-reset")
+async def request_password_reset(payload: PasswordResetRequest):
+    """
+    Sends a password reset email via Supabase.
+    """
+    try:
+        send_reset_email(payload.email)
+        return JSONResponse(
+            content={"message": "If this email exists, a recovery link was sent."},
+            status_code=status.HTTP_200_OK
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@router.post("/reset-password")
+async def reset_password(payload: PasswordResetPayload):
+    """
+    Completes the password reset using the access token.
+    """
+    try:
+        response = reset_password_with_token(
+            payload.access_token,
+            payload.new_password
+        )
+
+        # SDK retorna {"user": { ... }} quando OK
+        if not response or response.user is None:
+            return JSONResponse(
+                content={"error": "Invalid or expired token."},
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        return JSONResponse(
+            content={"message": "Password updated successfully!"},
+            status_code=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        return JSONResponse(
+            content={"error": str(e)},
+            status_code=status.HTTP_400_BAD_REQUEST
+        )

@@ -16,52 +16,63 @@ from supabase_auth.types import OAuthResponse
 
 
 # --- CODE ---
-async def login_user(email: str, password: str) -> AuthResponse:
+async def login_user(email: str, password: str):
     """
     Login user with email and password.
-
-    :param email: User email
-    :param password: User password
-
-    :return: AuthResponse from Supabase
-
-    :raises SupabaseError: If there is an error with Supabase authentication
-    :raises InvalidCredentialError: If the credentials are invalid
     """
 
-    # Authenticate with Supabase
     try:
-        auth_response = await container['supabase_client'].auth.sign_in_with_password({
-            'email': email,
-            'password': password,
+        # 1 — LOGIN NO SUPABASE
+        auth_response = await container["supabase_client"].auth.sign_in_with_password({
+            "email": email,
+            "password": password,
         })
-        # Obter user_id do supabase
+
         user_id = auth_response.user.id
+        access_token = auth_response.session.access_token
 
-        # Criar refresh token interno
-        refresh_repo = RefreshTokenRepository()
-        refresh_token, expires_at = generate_refresh_token()
-        refresh_repo.create(user_id=user_id, token=refresh_token, expires_at=expires_at)
+        # 2 — PEGAR REFRESH TOKEN DO SUPABASE
+        supabase_refresh_token = auth_response.session.refresh_token
 
-    
+        # 3 — SALVAR REFRESH TOKEN DO SUPABASE NO MONGO
+        from opty_api.mongo.repositories.users import UserRepository
+        users_repo = UserRepository(container["mongo_client"])
 
-    # Error in supabase auth: raise custom error
+        await users_repo.update_by_email(
+            email,
+            {"supabase_refresh_token": supabase_refresh_token}
+        )
+
+        # 4 — CRIAR REFRESH TOKEN INTERNO (MONGO)
+        from opty_api.utils.auth import generate_refresh_token
+        from opty_api.mongo.repositories.refresh_tokens import RefreshTokenRepository
+
+        internal_refresh_token, expires_at = generate_refresh_token()
+
+        repo = RefreshTokenRepository()
+        repo.create(
+            user_id=user_id,
+            token=internal_refresh_token,
+            expires_at=expires_at
+        )
+
+        # 5 — RETORNO FINAL
+        return {
+            "access_token": access_token,           # do Supabase
+            "refresh_token": internal_refresh_token, # nosso (interno)
+            "token_type": "bearer",
+            "user": {
+                "id": user_id,
+                "email": auth_response.user.email
+            }
+        }
+
     except AuthApiError as e:
-        raise AuthApiError(code=e.code, status=e.status, message=e.message) from e
+        raise AuthApiError(code=e.code, status=e.status, message=e.message)
 
-    # Error in supabase auth: raise custom error
     except Exception as e:
-        raise SupabaseError(f'[SUPABASE  ] Login failed: {str(e)}') from e
+        raise SupabaseError(f"[SUPABASE] Login failed: {str(e)}")
 
-    # Return auth response
-    return {
-    "access_token": auth_response.session.access_token,  # do Supabase
-    "refresh_token": refresh_token,                     # nosso
-    "user": {
-        "id": user_id,
-        "email": auth_response.user.email
-    }
-}
 
 
 async def login_with_oauth(provider: str) -> OAuthResponse:

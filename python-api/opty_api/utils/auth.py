@@ -6,7 +6,6 @@ Auth utility functions.
 from opty_api.app import container
 from opty_api.err.supabase_error import SupabaseError
 
-
 # --- TYPES ---
 from supabase_auth.types import UserResponse
 from typing import Optional
@@ -46,4 +45,20 @@ def generate_refresh_token(days_valid: int = 7):
     token = secrets.token_urlsafe(64)
     expires_at = datetime.utcnow() + timedelta(days=days_valid)
     return token, expires_at
+
+
+async def generate_new_access_token(supabase_refresh_token: str) -> str:
+
+    try:
+        result = await container["supabase_client"].auth.refresh_session(
+            {"refresh_token": supabase_refresh_token}
+        )
+
+        if not result.session:
+            raise SupabaseError("Não foi possível renovar o access_token.")
+
+        return result.session.access_token
+
+    except Exception as e:
+        raise SupabaseError(f"Erro ao renovar access_token: {str(e)}")
 

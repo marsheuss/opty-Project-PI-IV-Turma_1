@@ -21,7 +21,11 @@ from opty_api.services.auth.reset_password import (
     send_reset_email,
     reset_password_with_token
 )
-
+from datetime import datetime
+from fastapi import HTTPException
+from opty_api.mongo.repositories.refresh_tokens import RefreshTokenRepository
+from opty_api.mongo.repositories.users import UserRepository
+from opty_api.utils.auth import generate_refresh_token, generate_new_access_token
 
 # --- TYPES ---
 from opty_api.schemas.auth.create_profile.endpoint import CreateProfilePayload
@@ -105,11 +109,12 @@ async def login(payload: UserLoginPayload):
 
     # Build token response
     token: Token = {
-        'access_token': result.session.access_token,
-        'refresh_token': result.session.refresh_token,
-        'token_type': 'bearer',
-        'expires_in': result.session.expires_in
-    }
+    "access_token": result["access_token"],
+    "refresh_token": result["refresh_token"],
+    "token_type": "bearer",
+    "expires_in": 3600  
+}
+
 
     # Get user data from MongoDB
     user = await container['user_repository'].get_by_email(payload.email)
@@ -265,3 +270,60 @@ async def reset_password(payload: PasswordResetPayload):
             content={"error": str(e)},
             status_code=status.HTTP_400_BAD_REQUEST
         )
+
+class RefreshTokenPayload(BaseModel):
+    refresh_token: str
+
+
+@router.post("/refresh")
+async def refresh_token(payload: RefreshTokenPayload):
+    """
+    Gera um novo access_token usando:
+    - refresh_token interno (Mongo)
+    - refresh_token do Supabase (salvo no usuário)
+    """
+
+    internal_token = payload.refresh_token
+
+    refresh_repo = RefreshTokenRepository()
+    user_repo = UserRepository(container["mongo_client"])
+
+    # 1 — Buscar refresh interno no Mongo
+    stored = refresh_repo.get(internal_token)
+    if not stored:
+        raise HTTPException(status_code=401, detail="Refresh token inválido")
+
+    # 2 — Verificar expiração
+    if stored["expires_at"] < datetime.utcnow():
+        refresh_repo.delete(internal_token)
+        raise HTTPException(status_code=401, detail="Refresh token expirado")
+
+    user_id = stored["user_id"]
+
+    # 3 — Rotação: apagar este refresh_token
+    refresh_repo.delete(internal_token)
+
+    # 4 — Buscar no Mongo o refresh_token do Supabase
+    user = await user_repo.get_by_supabase_id(user_id)
+    if not user or "supabase_refresh_token" not in user:
+        raise HTTPException(status_code=401, detail="Não há refresh_token do Supabase salvo.")
+
+    supabase_refresh_token = user["supabase_refresh_token"]
+
+    # 5 — Gerar novo access_token comunicando com o Supabase
+    new_access_token = await generate_new_access_token(supabase_refresh_token)
+
+    # 6 — Criar novo refresh interno
+    new_internal_token, expires_at = generate_refresh_token()
+    refresh_repo.create(
+        user_id=user_id,
+        token=new_internal_token,
+        expires_at=expires_at
+    )
+
+    # 7 — Resposta final
+    return {
+        "access_token": new_access_token,
+        "refresh_token": new_internal_token,
+        "token_type": "bearer"
+    }

@@ -18,6 +18,7 @@ app = FastAPI(
     description = 'This is a REST API backend for OPTY project'
 )
 
+
 # CORS Configuration
 app.add_middleware(
     CORSMiddleware,

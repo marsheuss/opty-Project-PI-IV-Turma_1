@@ -1,7 +1,12 @@
+// front-end/src/pages/Resultados.tsx (Novo Conteúdo)
+
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { ChevronRight, SlidersHorizontal, X } from 'lucide-react';
+import { AlertTriangle, ChevronRight, SlidersHorizontal, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+// Importar api e useToast
+import { api } from '@/services/api';
+import { useToast } from '@/components/ui/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -19,60 +24,114 @@ import DashboardNav from '@/components/DashboardNav';
 import ProductCard from '@/components/ProductCard';
 import Footer from '@/components/Footer';
 
+// --- TIPAGEM DO BACKEND ---
+interface MercadoLivreProduct {
+  title: string;
+  price: string; // Ex: "R$ 1.549,65"
+  link: string;
+  image?: string;
+  source: string; // "Mercado Livre"
+}
+
+// --- TIPAGEM DO FRONT-END (MOCK) ---
+interface Offer {
+  store: string;
+  price: number;
+  condition: string;
+  shipping: string;
+  link: string;
+}
+
+interface ProductDisplay {
+  name: string;
+  image?: string;
+  offers: Offer[];
+}
+
+
 const Resultados = () => {
   const [searchParams] = useSearchParams();
-  const searchQuery = searchParams.get('q') || 'iPhone 15 Pro';
+  const searchQuery = searchParams.get('q') || 'Produto não especificado';
 
+  // Estados reais para dados e controle da UI
+  const [products, setProducts] = useState<ProductDisplay[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  const { toast } = useToast();
+
+  // Estados mockados para filtros (podem ser aprimorados mais tarde)
   const [filters, setFilters] = useState({
     priceMin: 0,
     priceMax: 10000,
     stores: [] as string[],
     condition: 'all',
   });
-
   const [sortBy, setSortBy] = useState('lowest-price');
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const stores = [
-    { id: 'amazon', name: 'Amazon' },
-    { id: 'magalu', name: 'Magazine Luiza' },
     { id: 'mercadolivre', name: 'Mercado Livre' },
-    { id: 'americanas', name: 'Americanas' },
-    { id: 'submarino', name: 'Submarino' },
-    { id: 'casasbahia', name: 'Casas Bahia' },
+    // Outras lojas estarão aqui quando forem implementadas no backend
+    { id: 'amazon', name: 'Amazon' }, 
+    { id: 'magalu', name: 'Magazine Luiza' },
   ];
+  
+  // --- FUNÇÃO DE BUSCA REAL ---
+  const fetchResults = async (query: string) => {
+    if (!query) return;
 
-  // Mock products data
-  const products = [
-    {
-      name: 'iPhone 15 Pro 256GB Azul Titânio',
-      offers: [
-        { store: 'Mercado Livre', price: 6450, condition: 'Novo', shipping: 'Grátis', link: '#' },
-        { store: 'Amazon', price: 6499, condition: 'Novo', shipping: 'Grátis', link: '#' },
-        { store: 'Magazine Luiza', price: 6599, condition: 'Novo', shipping: 'R$ 15,00', link: '#' },
-        { store: 'Americanas', price: 6799, condition: 'Novo', shipping: 'R$ 20,00', link: '#' },
-        { store: 'Submarino', price: 6850, condition: 'Novo', shipping: 'Grátis', link: '#' },
-      ],
-    },
-    {
-      name: 'iPhone 15 Pro 256GB Preto Titânio',
-      offers: [
-        { store: 'Amazon', price: 6499, condition: 'Novo', shipping: 'Grátis', link: '#' },
-        { store: 'Magazine Luiza', price: 6549, condition: 'Novo', shipping: 'Grátis', link: '#' },
-        { store: 'Casas Bahia', price: 6699, condition: 'Novo', shipping: 'R$ 25,00', link: '#' },
-      ],
-    },
-    {
-      name: 'iPhone 15 Pro 512GB Azul Titânio',
-      offers: [
-        { store: 'Amazon', price: 7899, condition: 'Novo', shipping: 'Grátis', link: '#' },
-        { store: 'Mercado Livre', price: 7799, condition: 'Novo', shipping: 'Grátis', link: '#' },
-        { store: 'Magazine Luiza', price: 7999, condition: 'Novo', shipping: 'R$ 30,00', link: '#' },
-        { store: 'Americanas', price: 8199, condition: 'Novo', shipping: 'Grátis', link: '#' },
-      ],
-    },
-  ];
+    setIsLoading(true);
+    setError(null);
 
+    try {
+      const mlProducts: MercadoLivreProduct[] = await api.search.mercadolivre(query);
+
+      // Mapeamento e Transformação dos Produtos do Backend para o formato do Card
+      const mappedProducts: ProductDisplay[] = mlProducts.map((p) => {
+        // Remove R$ e pontos de milhar, troca vírgula por ponto para conversão em float
+        const numericPrice = parseFloat(p.price.replace('R$', '').replace('.', '').replace(',', '.').trim());
+
+        const offer: Offer = {
+          store: 'Mercado Livre',
+          price: isNaN(numericPrice) ? 0 : numericPrice,
+          condition: 'Novo', // Simplificação da condição
+          shipping: 'Grátis', // Simplificação do frete
+          link: p.link,
+        };
+
+        return {
+          name: p.title,
+          image: p.image,
+          offers: [offer], // Cada produto do ML é sua única oferta por enquanto
+        };
+      });
+
+      setProducts(mappedProducts);
+
+    } catch (err) {
+      console.error("Erro na busca: ", err);
+      // Aqui usamos o código 503/504/500 que definimos no backend
+      const errorMessage = (err as any).response?.data?.detail || 'Erro desconhecido ao comunicar com o servidor.';
+      setError(`Falha na busca. Detalhe: ${errorMessage}`);
+      toast({
+        title: "Erro de Busca",
+        description: "Não foi possível carregar os resultados do Mercado Livre.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Efeito para buscar os dados na montagem do componente ou na mudança da query
+  useEffect(() => {
+    fetchResults(searchQuery);
+  }, [searchQuery]); 
+
+
+  // --- RESTANTE DO COMPONENTE ---
+  
   const toggleStore = (storeId: string) => {
     setFilters((prev) => ({
       ...prev,
@@ -220,7 +279,7 @@ const Resultados = () => {
                     Resultados para: <span className='gradient-text'>{searchQuery}</span>
                   </h1>
                   <p className='text-muted-foreground'>
-                    Encontramos {products.length} produtos em {stores.length} lojas
+                    {isLoading ? 'Buscando produtos...' : `Encontramos ${products.length} produtos`}
                   </p>
                 </div>
 
@@ -260,27 +319,56 @@ const Resultados = () => {
                 </Select>
               </div>
             </div>
-
-            {/* Products Grid */}
-            <div className='space-y-4'>
-              {products.map((product, index) => (
-                <ProductCard key={index} name={product.name} offers={product.offers} />
-              ))}
-            </div>
-
-            {/* Empty State (if needed) */}
-            {products.length === 0 && (
-              <div className='text-center py-12'>
-                <div className='text-6xl mb-4'>🔍</div>
-                <h3 className='text-xl font-semibold mb-2'>Nenhum resultado encontrado</h3>
-                <p className='text-muted-foreground mb-4'>
-                  Tente buscar por outro termo ou ajuste os filtros
-                </p>
-                <Button variant='gradient' onClick={() => window.location.href = '/dashboard'}>
-                  Voltar ao Dashboard
-                </Button>
+            
+            {/* --- DISPLAY DE ESTADOS --- */}
+            
+            {/* Loading State */}
+            {isLoading && (
+              <div className='flex justify-center items-center h-64'>
+                <Loader2 className='h-8 w-8 animate-spin text-primary' />
+                <p className='ml-3 text-lg text-muted-foreground'>Carregando os melhores preços...</p>
               </div>
             )}
+            
+            {/* Error State */}
+            {error && !isLoading && (
+              <div className='text-center py-12 glass p-6 rounded-xl border border-red-400'>
+                <AlertTriangle className='h-10 w-10 text-red-600 mx-auto mb-4' />
+                <h3 className='text-xl font-semibold mb-2 text-red-700'>Erro na Busca</h3>
+                <p className='text-red-600 mb-4'>{error}</p>
+              </div>
+            )}
+
+            {/* Products Grid (Show only if not loading and no error) */}
+            {!isLoading && !error && (
+                <div className='space-y-4'>
+                    {products.length > 0 ? (
+                        products.map((product, index) => (
+                          <ProductCard 
+                            key={index} 
+                            name={product.name} 
+                            image={product.image}
+                            offers={product.offers} 
+                          />
+                        ))
+                    ) : (
+                        // Empty State
+                        <div className='text-center py-12'>
+                            <div className='text-6xl mb-4'>🔍</div>
+                            <h3 className='text-xl font-semibold mb-2'>Nenhum resultado encontrado</h3>
+                            <p className='text-muted-foreground mb-4'>
+                                Nenhuma oferta foi encontrada para **"{searchQuery}"**. Tente uma busca mais geral ou cheque a ortografia.
+                            </p>
+                            <Button variant='gradient' onClick={() => window.location.href = '/dashboard'}>
+                                Voltar ao Dashboard
+                            </Button>
+                        </div>
+                    )}
+                </div>
+            )}
+            
+            {/* --- FIM DISPLAY DE ESTADOS --- */}
+            
           </main>
         </div>
       </div>

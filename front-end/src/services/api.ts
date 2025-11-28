@@ -174,6 +174,19 @@ export const api = {
       return response.data;
     },
   },
+
+
+search: {
+    /**
+     * Search for products on Mercado Livre.
+     * * @param query - The search term.
+     * * @returns List of MercadoLivreProduct
+     */
+    mercadolivre: async (query: string) => {
+      const response = await apiClient.get(`/api/search/mercadolivre?query=${query}`);
+      return response.data;
+    },
+  },
 };
 
 /**

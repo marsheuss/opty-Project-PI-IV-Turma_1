@@ -10,6 +10,16 @@ from opty_api.events import on_shutdown
 from opty_api.events import on_startup
 from opty_api.responders import errors  # pylint: disable=W0611
 
+# --- IMPORTS DE ROTAS (ROUTERS) ---
+from opty_api.routers import auth
+from opty_api.routers import search
+from opty_api.routers import system
+
+# --- CÓDIGO DE INCLUSÃO DE ROTAS ---
+# Incluir Routers na instância principal da aplicação
+app.include_router(system.router)
+app.include_router(auth.router, prefix="/auth")
+app.include_router(search.router, prefix="/search")
 
 # --- CODE ---
 @asynccontextmanager

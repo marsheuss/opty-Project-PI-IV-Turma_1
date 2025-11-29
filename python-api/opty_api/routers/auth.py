@@ -16,6 +16,8 @@ from opty_api.services.auth.register import register_user
 from opty_api.services.auth.update import update_user_profile
 from opty_api.utils.dependencies import get_current_active_user
 from opty_api.utils.dependencies import require_role
+from opty_api.services.auth.forgot_password import send_reset_password_email
+from opty_api.schemas.auth.forgot_password.endpoint import UserForgotPasswordPayload
 
 
 # --- TYPES ---
@@ -205,3 +207,31 @@ async def list_users(
 
     # Return the list of users
     return JSONResponse(content=jsonable_encoder(users_data), status_code=status.HTTP_200_OK)
+
+@router.post(
+    "/forgot-password",
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Request password reset e-mail",
+)
+async def forgot_password(payload: UserForgotPasswordPayload) -> JSONResponse:
+    """
+    Trigger Supabase password reset e-mail for the given email.
+
+    - Sempre retorna 202, mesmo se o e-mail não existir,
+      para não revelar se o usuário está cadastrado ou não.
+    """
+
+    # Tenta disparar o e-mail via Supabase
+    try:
+        await send_reset_password_email(payload.email)
+    except Exception:
+        # Mesmo se der erro interno, não expõe detalhe pro cliente.
+        # Você pode logar o erro internamente se quiser.
+        pass
+
+    # Resposta "genérica" de sucesso
+    return JSONResponse(
+        content={"message": "Se este e-mail estiver cadastrado, você receberá um link para redefinir sua senha."},
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+

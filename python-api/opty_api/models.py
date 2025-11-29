@@ -27,6 +27,9 @@ class Config(BaseSettings):
     MONGODB_URL: str
     MONGODB_DB_NAME: str
 
+    # OpenAI settings
+    OPENAI_API_KEY: str
+
     class Config:
         """
         Pydantic settings configuration.

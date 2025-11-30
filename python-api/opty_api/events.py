@@ -9,6 +9,7 @@ from opty_api.app import container
 from opty_api.app import health
 from opty_api.mongo.repositories.users import UserRepository
 from opty_api.mongo.setup.connection import MongoDBSetup
+from openai import AsyncOpenAI
 from supabase import acreate_client
 
 
@@ -31,11 +32,15 @@ async def on_startup(app: FastAPI) -> None:
     supabase_client = await acreate_client(supabase_url=container['config'].SUPABASE_URL,
                                            supabase_key=container['config'].SUPABASE_KEY)
 
+    # Initialize OpenAI client
+    openai_client = AsyncOpenAI(api_key=container['config'].OPENAI_API_KEY)
+
     # Update container
     container.update({
         'mongodb': mongodb,
         'user_repository': user_repository,
         'supabase_client': supabase_client,
+        'openai_client': openai_client,
     })
 
     # Set app health as OK

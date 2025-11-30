@@ -18,7 +18,7 @@ export interface UseClientChatReturn {
   connect: () => void;
 }
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080';
+const WS_URL = import.meta.env.VITE_WS_URL;
 
 export const useClientChat = (): UseClientChatReturn => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -32,8 +32,11 @@ export const useClientChat = (): UseClientChatReturn => {
 
     switch (wsMessage.type) {
       case 'CONNECT': {
+        // Client receives sessionId on connection
         if (wsMessage.payload?.sessionId) {
           setSessionId(wsMessage.payload.sessionId as string);
+
+          // Only add welcome message once
           if (!hasWelcomeMessage.current) {
             hasWelcomeMessage.current = true;
             const welcomeMessage: ChatMessage = {
@@ -44,7 +47,9 @@ export const useClientChat = (): UseClientChatReturn => {
             };
             setMessages((prev) => [...prev, welcomeMessage]);
           }
-        } else if (wsMessage.payload?.message?.includes('Supervisor')) {
+        }
+        // Supervisor joined notification
+        else if (wsMessage.payload?.message?.includes('Supervisor')) {
           const systemMessage: ChatMessage = {
             id: Date.now(),
             type: 'system',
@@ -55,7 +60,9 @@ export const useClientChat = (): UseClientChatReturn => {
         }
         break;
       }
+
       case 'MESSAGE': {
+        // Message from supervisor
         if (wsMessage.from === 'SUPERVISOR' && wsMessage.payload?.text) {
           const newMessage: ChatMessage = {
             id: Date.now(),
@@ -68,7 +75,9 @@ export const useClientChat = (): UseClientChatReturn => {
         }
         break;
       }
+
       case 'DISCONNECT': {
+        // Supervisor disconnected
         const disconnectMessage: ChatMessage = {
           id: Date.now(),
           type: 'system',
@@ -78,7 +87,9 @@ export const useClientChat = (): UseClientChatReturn => {
         setMessages((prev) => [...prev, disconnectMessage]);
         break;
       }
+
       case 'ERROR': {
+        // Error from server
         const errorMessage: ChatMessage = {
           id: Date.now(),
           type: 'system',
@@ -114,45 +125,6 @@ export const useClientChat = (): UseClientChatReturn => {
 
   const connect = useCallback(() => {
     setShouldConnect(true);
-    setSessionId((prev) => prev || (globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2)));
-    if (!hasWelcomeMessage.current) {
-      hasWelcomeMessage.current = true;
-      const welcomeMessage: ChatMessage = {
-        id: Date.now(),
-        type: 'system',
-        message: 'Bem-vindo ao suporte Opty! Em que posso ajudar?',
-        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, welcomeMessage]);
-    }
-    setTimeout(() => {
-      setSessionId((sid) => {
-        if (!sid) return sid;
-        try {
-          const key = 'optySessions';
-          const existing: Array<{
-            sessionId: string;
-            paired?: boolean;
-            createdAt?: string;
-            waitingTimeMinutes?: number;
-            waitingTimeSeconds?: number;
-          }> = JSON.parse(localStorage.getItem(key) || '[]') || [];
-          const now = new Date();
-          const session = {
-            sessionId: sid,
-            paired: false,
-            createdAt: now.toISOString(),
-            waitingTimeMinutes: 0,
-            waitingTimeSeconds: 0,
-          };
-          const updated = [session, ...existing.filter((s) => s.sessionId !== sid)];
-          localStorage.setItem(key, JSON.stringify(updated));
-        } catch (e) {
-          void e;
-        }
-        return sid;
-      });
-    }, 100);
   }, []);
 
   const sendMessage = useCallback(

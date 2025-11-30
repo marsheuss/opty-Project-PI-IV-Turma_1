@@ -49,3 +49,7 @@ src/components/*
 # 8. NÃO ignora a pasta 'src/pages' e seu conteúdo
 !src/pages/
 !src/pages/**
+
+# 9. NÃO ignora a pasta 'src/hooks' e seu conteúdo
+!src/hooks/
+!src/hooks/**

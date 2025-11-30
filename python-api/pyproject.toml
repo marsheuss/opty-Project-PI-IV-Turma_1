@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "opty_api"
-version = "0.1.0"
+version = "1.0.0"
 description = "This is a REST API backend for OPTY project"
 authors = ["Eduardo Kairalla"]
 packages = [{include = "opty_api"}]
@@ -19,6 +19,7 @@ passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 python-multipart = "^0.0.9"
 httpx = "^0.27.0"
 beautifulsoup4 = "^4.12.3"
+openai = "^2.8.1"
 
 [tool.poetry.group.dev.dependencies]
 pylint = "^3.3.7"

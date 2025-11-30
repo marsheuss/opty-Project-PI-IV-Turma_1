@@ -1,260 +1,513 @@
-# Opty - Back-end
+# OPTY - Plataforma de Busca Inteligente de Produtos
 
-This is the general backend service of Easy Purchase
+**Projeto Integrador IV - PUC Campinas - Equipe 1**
 
------
+## 📋 Visão Geral do Projeto
 
-## 🚀 Getting Started (Local Development)
+OPTY é uma plataforma web full-stack de busca inteligente de produtos que integra múltiplos serviços para proporcionar uma experiência completa de comparação de preços e atendimento em tempo real. O sistema utiliza inteligência artificial para normalizar consultas de busca e oferece suporte ao cliente através de chat bidirecional.
 
-Follow these steps to set up and run the project on your local machine.
+### Principais Funcionalidades
 
-### 1. Prerequisites
+- 🔍 **Busca Inteligente de Produtos**: Web scraping com normalização de queries usando OpenAI
+- 👤 **Sistema de Autenticação**: Registro, login, etc
+- 💬 **Chat em Tempo Real**: Comunicação WebSocket entre clientes e supervisores
+- 📊 **Dashboard Personalizado**: Visualização de resultados e histórico de buscas
+- 👥 **Sistema de Perfis**: Usuários comuns e supervisores com diferentes permissões
 
-  * **Python** 3.9+
-  * **Poetry** for dependency management
-  * **Docker** for containerization
+---
 
-### 2. Initial Configuration
+## 🏗️ Arquitetura do Sistema
 
-First, set up your local environment variables by copying the example file:
+### Arquitetura Geral
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│                          FRONTEND (React)                           │
+│                                                                     │
+└────────┬────────────────────────────────────────────────┬───────────┘
+         │                                                │
+         │ HTTP/REST                                      │ WebSocket
+         │                                                │
+         ▼                                                ▼
+┌─────────────────────┐                    ┌──────────────────────────┐
+│   PYTHON API        │                    │   SERVIDOR JAVA          │
+│   (FastAPI)         │                    │   (Spring Boot)          │
+│                     │                    │                          │
+│                     │                    │                          │
+│ • Autenticação      │                    │ • WebSocket Endpoints    │
+│ • Busca Produtos    │                    │ • Gerenciamento Sessões  │
+│ • Perfis Usuários   │                    │ • Roteamento Mensagens   │
+│ • Web Scraping      │                    │ • Persistência Chat      │
+└──────┬──────────────┘                    └────────┬─────────────────┘
+       │                                            │
+       │                                            │
+       ▼                                            ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                          MONGODB (:27017)                            │
+│                                                                      │
+│  Collections:                                                        │
+│  • users          - Perfis e dados dos usuários                      │
+│  • messages       - Histórico de mensagens do chat                   │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                      SERVIÇOS EXTERNOS                               │
+│                                                                      │
+│  • Supabase Auth  - Autenticação e gerenciamento de tokens           │
+│  • OpenAI API     - Normalização inteligente de queries              │
+│  • Mercado Livre  - Fonte de dados de produtos (web scraping)        │
+└──────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                    CLIENTE JAVA TRADICIONAL                          │
+│                    (Socket TCP Tradicional)                          │
+│                                                                      │
+│  Cliente de linha de comando para comunicação via socket             │
+│  tradicional (não-WebSocket) com o servidor Java                     │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+### Arquitetura do servidor Java
+
+```
+  ┌──────────────────────────────────────────────────────────────┐
+  │         Servidor Java (Spring Boot)                          │
+  │                                                              │
+  │  ┌─────────────────────────┐   ┌─────────────────────────┐   │
+  │  │ WebSocket Server        │   │ Socket Tradicional      │   │
+  │  │ Endpoint: /ws/client    │   │ ServerSocket tradicional│   │
+  │  │ Endpoint: /ws/supervisor│   │                         │   │
+  │  └─────────────────────────┘   └─────────────────────────┘   │
+  │              │                            │                  │
+  │              └────────────┬───────────────┘                  │
+  │                           ▼                                  │
+  │              ┌─────────────────────────┐                     │
+  │              │   SessionManager        │  ← UNIFICADOR       │
+  │              │   (Camada de Abstração) │                     │
+  │              └─────────────────────────┘                     │
+  │                           │                                  │
+  │              ┌────────────┴────────────┐                     │
+  │              ▼                         ▼                     │
+  │       MessageRouter          SupervisorQueueService          │
+  └──────────────────────────────────────────────────────────────┘
+```
+
+
+### Fluxo de Dados
+
+1. **Autenticação**: Frontend → Python API → Supabase Auth → MongoDB (perfil)
+2. **Busca de Produtos**: Frontend → Python API → OpenAI (normalização) → Mercado Livre (scraping) → Frontend
+3. **Chat em Tempo Real**: Frontend ↔ Java Socket Server (WebSocket) ↔ MongoDB (persistência)
+4. **Cliente Tradicional**: Java Client ↔ Java Socket Server (TCP Socket) ↔ MongoDB
+
+---
+
+## 👥 Integrantes do Time
+
+**Eduardo Kairalla**
+**Marcelo Oliveira**
+**Mateus Merg**
+**Matheus Ribeiro Marafon**
+**Victor Palma**
+
+---
+
+## 🛠️ Tecnologias Utilizadas
+
+### Frontend
+- **React 18** - Biblioteca JavaScript para interfaces
+- **TypeScript** - Superset tipado do JavaScript
+- **Vite** - Build tool e dev server
+- **TailwindCSS** - Framework CSS utility-first
+- **shadcn/ui** - Componentes UI reutilizáveis
+- **React Router** - Roteamento client-side
+- **Axios** - Cliente HTTP
+- **React Query** - Gerenciamento de estado servidor
+- **Supabase Client** - SDK de autenticação
+
+### Backend - Python API
+- **FastAPI** - Framework web moderno e rápido
+- **Pydantic** - Validação de dados
+- **Uvicorn** - Servidor ASGI
+- **Poetry** - Gerenciador de dependências
+- **Supabase** - Autenticação e autorização
+- **PyMongo** - Driver MongoDB para Python
+- **BeautifulSoup4** - Web scraping
+- **OpenAI** - Normalização de queries com IA
+- **HTTPX** - Cliente HTTP assíncrono
+
+### Backend - Java Server
+- **Spring Boot 3.2.1** - Framework Java
+- **Spring WebSocket** - Suporte WebSocket
+- **Spring Data MongoDB** - Integração MongoDB
+- **Spring Boot Actuator** - Monitoramento e métricas
+- **Jackson** - Processamento JSON
+- **Lombok** - Redução de boilerplate
+- **Maven** - Gerenciador de dependências
+- **Java 17** - Linguagem de programação
+
+### Backend - Java Client
+- **Java 17** - Linguagem de programação
+- **Java Socket** - Comunicação TCP tradicional
+- **Java Serialization** - Serialização de objetos
+- **Threads** - Gerenciamento manual de threads
+
+### Banco de Dados
+- **MongoDB 8** - Banco de dados NoSQL
+  - Collection `users`: Perfis de usuários
+  - Collection `messages`: Histórico de mensagens de chat
+
+### DevOps e Deploy
+- **Docker** - Containerização
+- **Docker Compose** - Orquestração de containers
+
+### Serviços Externos
+- **Supabase** - Autenticação e gerenciamento de usuários
+- **OpenAI API** - GPT-4-mini para normalização de queries
+- **Mercado Livre** - Fonte de dados de produtos
+
+---
+
+## 📡 Endpoints da API
+
+### Python API (FastAPI)
+
+#### Autenticação
+| Método | Endpoint | Descrição
+|--------|----------|-----------
+| `POST` | `/api/auth/register` | Registrar novo usuário
+| `POST` | `/api/auth/login` | Login com email/senha
+| `GET` | `/api/auth/oauth/{provider}` | Iniciar fluxo OAuth
+| `POST` | `/api/auth/profile` | Criar perfil MongoDB (OAuth)
+| `GET` | `/api/auth/me` | Obter perfil do usuário atual
+| `PUT` | `/api/auth/me` | Atualizar perfil
+| `DELETE` | `/api/auth/me` | Deletar conta (soft delete)
+| `GET` | `/api/auth/users` | Listar todos usuários
+| `POST` | `/api/auth/forgot-password` | Solicitar reset de senha
+
+#### Busca de Produtos
+| Método | Endpoint | Descrição
+|--------|----------|-----------
+| `GET` | `/api/search/mercadolivre?query={termo}` | Buscar produtos no Mercado Livre
+
+#### Sistema
+| Método | Endpoint | Descrição
+|--------|----------|-----------
+| `GET` | `/health` | Health check da API
+| `GET` | `/docs` | Documentação Swagger interativa
+
+### Java Socket Server
+
+#### WebSocket Endpoints
+| Tipo | Endpoint | Descrição |
+|------|----------|-----------|
+| `WebSocket` | `ws://localhost:8080/ws/client` | Conexão para clientes |
+| `WebSocket` | `ws://localhost:8080/ws/supervisor` | Conexão para supervisores |
+
+#### REST Endpoints
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| `GET` | `/api/sessions/available` | Listar sessões disponíveis |
+| `GET` | `/actuator/health` | Health check do servidor |
+
+---
+
+## 📊 Modelos de Dados
+
+### MongoDB - Collection: `users`
+
+```javascript
+{
+  "_id": ObjectId,
+  "supabase_id": String,        // ID do usuário no Supabase Auth
+  "email": String,              // Email único
+  "name": String,               // Nome completo
+  "phone": String,              // Telefone (opcional)
+  "birthday": String,           // Data de nascimento (opcional)
+  "avatar_url": String,         // URL do avatar (opcional)
+  "role": String,               // "user" ou "supervisor"
+  "is_active": Boolean,         // Status da conta
+  "created_at": ISODate,        // Data de criação
+  "updated_at": ISODate         // Última atualização
+}
+```
+
+### MongoDB - Collection: `messages`
+
+```javascript
+{
+  "_id": ObjectId,
+  "channelType": String,        // Tipo do canal (ex: "chat")
+  "sessionId": String,          // ID da sessão de chat
+  "from": String,               // "CLIENT" ou "SUPERVISOR"
+  "type": String,               // "CONNECT", "MESSAGE", "DISCONNECT", "ERROR"
+  "payload": Object,            // Conteúdo da mensagem
+  "timestamp": ISODate          // Data/hora da mensagem
+}
+```
+
+### Modelo: Message (WebSocket)
+
+```json
+{
+  "sessionId": "uuid-da-sessao",
+  "from": "CLIENT | SUPERVISOR",
+  "type": "CONNECT | MESSAGE | DISCONNECT | ERROR",
+  "payload": {
+    "text": "Conteúdo da mensagem",
+    // ... outros campos conforme o tipo
+  },
+  "timestamp": "2025-11-29T12:00:00Z"
+}
+```
+
+### Modelo: Session
+
+```java
+{
+  "sessionId": String,
+  "clientConnectionId": String,
+  "supervisorConnectionId": String,
+  "createdAt": Instant,
+  "lastActivityAt": Instant,
+  "isPaired": Boolean
+}
+```
+
+### Modelo: MercadoLivreProduct
+
+```json
+{
+  "title": "Nome do produto",
+  "price": "R$ 99,90",
+  "link": "https://mercadolivre.com.br/...",
+  "image": "https://...",
+  "source": "Mercado Livre"
+}
+```
+
+### Modelo: Token (JWT)
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "expires_in": 3600
+}
+```
+
+---
+
+## 🚀 Instruções para Executar
+
+### Pré-requisitos
+
+- **Node.js** 18+ e npm/yarn/pnpm
+- **Python** 3.9+
+- **Poetry** (Python package manager)
+- **Java** 17+
+- **Maven** 3.6+
+- **Docker** e **Docker Compose** (para deploy)
+- **Git**
+
+### 1. Clonar o Repositório
 
 ```bash
+git clone git@github.com:marsheuss/opty-Project-PI-IV-Turma_1.git
+cd opty-Project-PI-IV-Turma_1
+```
+
+### 2. Configurar Variáveis de Ambiente
+
+Cada componente possui um arquivo `.env.example`. Copie e configure:
+
+#### Python API
+```bash
+cd python-api
 cp .env.example .env
+# Edite o .env com suas credenciais do Supabase, MongoDB, OpenAI, etc.
 ```
 
-Now, open the `.env` file and customize the variables for your environment.
-
-> **Important:** Remember to also add any new environment variables to the configuration model in the `models.py` file.
-
-### 3. Install Dependencies
-
-Use Poetry to install all necessary Python packages. This command reads the `pyproject.toml` file and creates a virtual environment for you.
-
+#### Frontend
 ```bash
+cd front-end
+cp .env.example .env
+# Configure as URLs das APIs e WebSocket
+```
+
+#### Deploy (Docker Compose)
+```bash
+cd deploy
+cp .env.example .env
+# Configure as variáveis de ambiente para os containers
+```
+
+### 3. Executar os Serviços
+
+#### Opção A: Desenvolvimento Local
+
+**1. Iniciar MongoDB**
+```bash
+cd deploy
+docker compose up mongo -d
+```
+
+**2. Iniciar Python API**
+```bash
+cd python-api
 poetry install
-```
-
-### 4. Run the Application
-
-To run the development server, you can use `poetry run` to execute the script within the correct virtual environment:
-
-```bash
 poetry run scripts/dev
+# API disponível em http://localhost:8000
+# Documentação em http://localhost:8000/docs
 ```
 
-Alternatively, you can activate the virtual environment first and then run the script directly.
-
+**3. Iniciar Java Socket Server**
 ```bash
-# On Linux/Mac
-source .venv/bin/activate
-
-./script/dev
+cd java-server
+mvn clean install
+mvn spring-boot:run
+# WebSocket disponível em ws://localhost:8080/ws/client
+# Health check em http://localhost:8080/actuator/health
 ```
 
+**4. Iniciar Frontend**
 ```bash
-# On Windows
-.venv\Scripts\activate.bat
-
-uvicorn --app-dir easypurchase_backend --host 0.0.0.0 --port 8000 --reload main:app
+cd front-end
+npm install
+npm run dev
+# Aplicação disponível em http://localhost:5000
 ```
 
-The API should now be running on the specified host and port (e.g., `http://0.0.0.0:8000`).
+**5. (Opcional) Executar Java Client**
+```bash
+cd java-client
+./scripts/run.sh
+# ou especificar host/porta:
+./scripts/run.sh localhost 3000
+```
 
------
-
-## 📚 Using the API
-
-Once the application is running, you can access the interactive API documentation (powered by Swagger UI) in your browser:
-
-➡️ **[http://localhost:8000/docs](http://localhost:8000/docs)**
-
-This interface allows you to explore all available endpoints, view their parameters, and test them live.
-
------
-
-## 🧪 Running Tests
-
-To run the full suite of automated tests, use the following command:
+#### Opção B: Deploy com Docker Compose
 
 ```bash
+cd deploy
+
+# Modo produção
+docker compose up -d
+
+# Modo desenvolvimento (com portas expostas)
+docker compose -f docker-compose.yml -f docker-compose-dev.yml up -d
+
+# Visualizar logs
+docker compose logs -f
+
+# Parar todos os serviços
+docker compose down
+```
+
+---
+
+## 🧪 Executar Testes
+
+### Python API
+```bash
+cd python-api
 poetry run scripts/test
 ```
 
------
-
-## 🐳 Deploying with Docker
-
-This project is designed to be deployed as a Docker container.
-
-### Building the Image
-
-To build the Docker image, run the `build` script with your Docker Hub username:
-
+### Java Server
 ```bash
-DOCKER_USER=your-docker-hub-user scripts/build
+cd java-server
+
+# Todos os testes
+./scripts/tests.sh
+
+# Testes específicos
+./scripts/tests.sh SessionTest
+./scripts/tests.sh MessageTest
 ```
 
-This will build and tag the image (e.g., `your-docker-hub-user/EasyPurchase:0.0.1`).
+---
 
-> **Note:** The production Docker image exposes the application on port **80**, while the local development server (`scripts/dev`) runs on port **8000**.
+## 📖 Documentação Adicional
 
------
+### Acessar Documentação da API (Swagger)
 
-## ❤️ Health Check
-
-The application includes a health check endpoint to monitor its status. You can query it using `curl`:
-
-```bash
-# Example for a locally running instance
-curl -fsS http://localhost:8000/health | jq .
+Com a Python API rodando, acesse:
+```
+http://localhost:8000/docs
 ```
 
-
-
-
-
-# Opty - Front-end
-
-## Prerequisites
-
-Before you begin, make sure you have installed:
-
-- **Node.js** (version 18 or higher)
-- **npm** or **yarn** or **pnpm**
-- Access to the backend (Java API and WebSocket)
-
-## Installation
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/marsheuss/opty-Project-PI-IV.git
-cd opty-Project-PI-IV
-cd front-end
-```
-
-### 2. Install dependencies
-
-```bash
-npm install
-```
-
-or
-
-```bash
-yarn install
-```
-
-or
-
-```bash
-pnpm install
-```
-
-### 3. Configure environment variables
-
-Create a `.env` file at the project root based on `.env.example`:
-
-```bash
-cp .env.example .env
-```
-
-Edit the `.env` file with your settings
-
-
-**Available environment variables:**
-
-- `APP_PORT`: Port where the development server will run
-- `VITE_WS_URL`: WebSocket server URL for real-time communication
-- `VITE_JAVA_API_URL`: Java REST API URL
-
-## How to Run
-
-### Development Mode
-
-```bash
-npm run dev
-```
-
-The application will be available at `http://localhost:5000` (or the port configured in `APP_PORT`)
-
-### Production Build
-
-```bash
-npm run build
-```
-
-The build will be generated in the `dist/` folder
-
-### Development Build
-
-```bash
-npm run build:dev
-```
-
-Creates a build with development settings
-
-### Preview Build
-
-```bash
-npm run preview
-```
-
-Preview the production build locally
-
-### Linting
-
-```bash
-npm run lint
-```
-
-Run ESLint to check code quality
-
-## Project Structure
+### Estrutura de Diretórios do Projeto
 
 ```
-src/
-├── components/          # Reusable components
-│   ├── ui/             # UI components (shadcn/ui)
-│   ├── ChatMessage.tsx
-│   ├── DashboardNav.tsx
-│   ├── Footer.tsx
-│   ├── Navbar.tsx
-│   ├── ProductCard.tsx
-│   └── ProgressBar.tsx
-├── hooks/              # Custom React Hooks
-│   ├── useClientChat.ts
-│   ├── useSupervisorChat.ts
-│   ├── useSupervisorQueue.ts
-│   ├── useWebSocket.ts
-│   ├── use-mobile.tsx
-│   └── use-toast.ts
-├── lib/                # Utilities and configurations
-│   └── utils.ts
-├── pages/              # Application pages
-│   ├── Index.tsx       # Home page
-│   ├── Login.tsx       # Login page
-│   ├── Register.tsx    # Registration page
-│   ├── Onboarding.tsx  # Onboarding process
-│   ├── Dashboard.tsx   # Main dashboard
-│   ├── Resultados.tsx  # Results page
-│   ├── Perfil.tsx      # User profile
-│   ├── ChatCliente.tsx # Client chat
-│   ├── ChatSupervisor.tsx # Supervisor chat
-│   └── NotFound.tsx    # 404 page
-├── App.tsx             # Main component
-└── main.tsx            # Entry point
+opty-final-repo/
+├── front-end/           # Aplicação React
+│   ├── src/
+│   │   ├── components/  # Componentes reutilizáveis
+│   │   ├── pages/       # Páginas da aplicação
+│   │   ├── hooks/       # Custom React Hooks
+│   │   └── lib/         # Utilitários
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── python-api/          # API REST FastAPI
+│   ├── opty_api/
+│   │   ├── routers/     # Endpoints
+│   │   ├── services/    # Lógica de negócio
+│   │   ├── schemas/     # Modelos Pydantic
+│   │   └── utils/       # Utilitários
+│   ├── pyproject.toml
+│   └── poetry.lock
+│
+├── java-server/         # Servidor WebSocket Spring Boot
+│   ├── src/main/java/com/opty/socket/
+│   │   ├── config/      # Configurações
+│   │   ├── controller/  # Controllers REST
+│   │   ├── websocket/   # Handlers WebSocket
+│   │   ├── service/     # Serviços
+│   │   ├── model/       # Modelos de dados
+│   │   └── dto/         # Data Transfer Objects
+│   └── pom.xml
+│
+├── java-client/         # Cliente Java tradicional
+│   ├── src/
+│   │   ├── ClienteChat.java
+│   │   ├── Parceiro.java
+│   │   └── com/opty/socket/tradicional/comunicado/
+│   └── scripts/
+│
+└── deploy/              # Orquestração Docker
+    ├── docker-compose.yml
+    ├── docker-compose-dev.yml
+    └── infra/
 ```
 
-## Available Routes
+---
 
-- `/` - Home page
-- `/login` - User authentication
-- `/register` - New user registration
-- `/onboarding` - Onboarding process
-- `/dashboard` - Main dashboard
-- `/resultados` - Results visualization
-- `/perfil` - User profile
-- `/chat/cliente` - Client chat
-- `/chat/supervisor/:sessionId?` - Supervisor chat (with optional session ID)
+## 🌐 URLs de Acesso (Desenvolvimento)
 
+| Serviço | URL | Descrição |
+|---------|-----|-----------|
+| Frontend | `http://localhost:5000` | Interface do usuário |
+| Python API | `http://localhost:8000` | REST API |
+| Python API Docs | `http://localhost:8000/docs` | Swagger UI |
+| Java WebSocket (Client) | `ws://localhost:8080/ws/client` | WebSocket clientes |
+| Java WebSocket (Supervisor) | `ws://localhost:8080/ws/supervisor` | WebSocket supervisores |
+| Java Health Check | `http://localhost:8080/actuator/health` | Status do servidor |
+| MongoDB | `localhost:27017` | Banco de dados |
+
+---
+
+## 📝 Notas Importantes
+
+1. **OpenAI API**: É necessário uma chave válida da OpenAI para normalização de queries de busca
+2. **Supabase**: Configure um projeto no Supabase e obtenha as credenciais necessárias
+3. **MongoDB**: Em produção, use credenciais fortes e habilite autenticação
+4. **CORS**: Configure corretamente as origens permitidas em produção
+5. **WebSocket**: Certifique-se de que o servidor Java está rodando antes de conectar clientes
+6. **Web Scraping**: O scraping do pode ser afetado por mudanças nos sites
+
+---
+
+**Desenvolvido com muito ☕ pela equipe OPTY - PUC Campinas 2025**

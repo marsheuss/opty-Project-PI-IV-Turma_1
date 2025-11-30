@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, Smile, ArrowLeft } from 'lucide-react';
+import { Send, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import ChatMessage from '@/components/ChatMessage';
 import DashboardNav from '@/components/DashboardNav';
 import { useToast } from '@/hooks/use-toast';
 import { useClientChat } from '@/hooks/useClientChat';
+ 
 import { useAuth } from '@/hooks/useAuth';
 
 const ChatCliente = () => {
@@ -57,6 +58,8 @@ const ChatCliente = () => {
     sendChatMessage(message);
     setMessage('');
   };
+
+  
 
   const handleBackToDashboard = () => {
     navigate('/dashboard');
@@ -169,6 +172,9 @@ const ChatCliente = () => {
                       message={msg.message}
                       time={msg.time}
                       senderName={msg.senderName}
+                      fileUrl={msg.fileUrl}
+                      fileName={msg.fileName}
+                      fileType={msg.fileType}
                     />
                   ))
                 )}
@@ -178,36 +184,7 @@ const ChatCliente = () => {
             {/* Input Area */}
             <div className='border-t border-border p-4 bg-background/50'>
               <div className='flex items-end gap-2'>
-                <div className='flex gap-2'>
-                  <Button
-                    type='button'
-                    variant='ghost'
-                    size='icon'
-                    className='flex-shrink-0'
-                    onClick={() =>
-                      toast({
-                        title: 'Em breve',
-                        description: 'Funcionalidade de anexo em desenvolvimento.',
-                      })
-                    }
-                  >
-                    <Paperclip className='h-5 w-5' />
-                  </Button>
-                  <Button
-                    type='button'
-                    variant='ghost'
-                    size='icon'
-                    className='flex-shrink-0'
-                    onClick={() =>
-                      toast({
-                        title: 'Em breve',
-                        description: 'Funcionalidade de emoji em desenvolvimento.',
-                      })
-                    }
-                  >
-                    <Smile className='h-5 w-5' />
-                  </Button>
-                </div>
+                
 
                 <div className='flex-1 flex gap-2'>
                   <Input
